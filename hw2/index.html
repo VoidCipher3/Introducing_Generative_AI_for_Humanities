@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>韓語學習字卡 Pro</title>
+    <script src="https://code.responsivevoice.org/responsivevoice.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f39c12;
+            --bg-color: #f0f4f8;
+            --card-front: #ffffff;
+            --card-back: #e3f2fd;
+        }
+
+        body {
+            font-family: 'Segoe UI', "Microsoft JhengHei", sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        /* 類別篩選器 */
+        .filter-section {
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .filter-btn {
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--primary-color);
+            background: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: 0.3s;
+        }
+
+        .filter-btn.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        /* 翻轉卡片容器 */
+        .flashcard-container {
+            perspective: 1000px;
+            width: 100%;
+            height: 250px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+
+        .flashcard-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-radius: 16px;
+        }
+
+        .flashcard-container.is-flipped .flashcard-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 16px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .card-front {
+            background-color: var(--card-front);
+        }
+
+        .card-back {
+            background-color: var(--card-back);
+            transform: rotateY(180deg);
+        }
+
+        .korean { font-size: 3rem; font-weight: bold; color: #1976d2; }
+        .translation { font-size: 1.5rem; color: #333; margin-top: 10px; }
+        .romanization { font-size: 1rem; color: #777; font-style: italic; }
+
+        /* 收藏星星 */
+        .fav-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 1.5rem;
+            color: #ccc;
+            background: none;
+            border: none;
+            cursor: pointer;
+            z-index: 10;
+        }
+        .fav-btn.active { color: #f1c40f; }
+
+        /* 控制按鈕 */
+        .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .btn { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-main { background: var(--primary-color); color: white; }
+        .btn-sub { background: #ddd; color: #333; }
+        .btn:hover { opacity: 0.9; transform: scale(1.02); }
+        .btn:active { transform: scale(0.98); }
+
+        .auto-status { font-size: 0.8rem; color: #e74c3c; height: 1.2rem; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>韓語學習 Pro</h1>
+
+    <div class="filter-section" id="filter-container">
+        </div>
+
+    <div class="auto-status" id="auto-status"></div>
+
+    <div class="flashcard-container" id="card-container">
+        <div class="flashcard-inner">
+            <button class="fav-btn" id="fav-toggle" title="加入收藏">★</button>
+            <div class="card-front">
+                <div class="korean" id="korean-word">안녕하세요</div>
+                <div class="romanization" id="romanization">annyeonghaseyo</div>
+            </div>
+            <div class="card-back">
+                <div class="translation" id="translation">你好</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-sub" id="prev-btn">◀ 上一個</button>
+        <button class="btn btn-main" id="speak-btn">🔊 發音</button>
+        <button class="btn btn-sub" id="next-btn">下一個 ▶</button>
+        <button class="btn btn-sub" id="shuffle-btn">🔀 隨機排序</button>
+        <button class="btn btn-sub" id="auto-btn">▶ 自動播放</button>
+        <button class="btn btn-sub" id="flip-btn">🔄 翻轉卡片</button>
+    </div>
+
+    <div id="progress">進度：1 / 1</div>
+</div>
+
+<script>
+    // 單字庫與分類
+    const fullVocabulary = [
+        { id: 1, korean: "안녕하세요", romanization: "annyeonghaseyo", translation: "你好", category: "問候" },
+        { id: 2, korean: "감사합니다", romanization: "gamsahamnida", translation: "謝謝", category: "問候" },
+        { id: 3, korean: "네", romanization: "ne", translation: "是的", category: "基本應答" },
+        { id: 4, korean: "아니요", romanization: "aniyo", translation: "不是 / 沒有", category: "基本應答" },
+        { id: 5, korean: "이거", romanization: "igeo", translation: "這個", category: "購物餐飲" },
+        { id: 6, korean: "물", romanization: "mul", translation: "水", category: "購物餐飲" },
+        { id: 7, korean: "화장실이 어디예요?", romanization: "hwajangsiri eodiyeyo?", translation: "洗手間在哪裡？", category: "旅遊指路" },
+        { id: 8, korean: "오른쪽", romanization: "oreunjjok", translation: "右邊", category: "旅遊指路" },
+        { id: 9, korean: "사랑해요", romanization: "saranghaeyo", translation: "我愛你", category: "日常感情" },
+        { id: 10, korean: "대박", romanization: "daebak", translation: "太厲害了", category: "日常感情" },
+        { id: 11, korean: "오늘", romanization: "oneul", translation: "今天", category: "時間概念" },
+        { id: 12, korean: "내일", romanization: "naeil", translation: "明天", category: "時間概念" }
+    ];
+
+    let currentList = [...fullVocabulary];
+    let currentIndex = 0;
+    let isAutoPlaying = false;
+    let autoTimer = null;
+    
+    // 從 LocalStorage 讀取收藏紀錄
+    let favorites = JSON.parse(localStorage.getItem('ko_favorites')) || [];
+
+    // 初始化分類按鈕
+    const categories = ["全部", "我的收藏", ...new Set(fullVocabulary.map(v => v.category))];
+    const filterContainer = document.getElementById('filter-container');
+    categories.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = `filter-btn ${cat === "全部" ? "active" : ""}`;
+        btn.textContent = cat;
+        btn.onclick = () => filterCategory(cat, btn);
+        filterContainer.appendChild(btn);
+    });
+
+    const cardContainer = document.getElementById('card-container');
+    const favToggle = document.getElementById('fav-toggle');
+
+    // 更新畫面顯示
+    function updateCard() {
+        const item = currentList[currentIndex];
+        if (!item) return;
+
+        document.getElementById('korean-word').textContent = item.korean;
+        document.getElementById('romanization').textContent = item.romanization;
+        document.getElementById('translation').textContent = item.translation;
+        document.getElementById('progress').textContent = `進度：${currentIndex + 1} / ${currentList.length}`;
+        
+        // 更新收藏星星的顏色狀態
+        favToggle.classList.toggle('active', favorites.includes(item.id));
+        
+        // 切換新卡片時，確保卡片翻回正面
+        cardContainer.classList.remove('is-flipped');
+    }
+
+    // 分類過濾邏輯
+    function filterCategory(cat, btnElement) {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btnElement.classList.add('active');
+
+        if (cat === "全部") {
+            currentList = [...fullVocabulary];
+        } else if (cat === "我的收藏") {
+            currentList = fullVocabulary.filter(v => favorites.includes(v.id));
+        } else {
+            currentList = fullVocabulary.filter(v => v.category === cat);
+        }
+
+        if (currentList.length === 0) {
+            alert("此分類目前沒有單字喔！");
+            // 退回全部
+            filterCategory("全部", filterContainer.firstChild);
+            return;
+        }
+        
+        currentIndex = 0;
+        updateCard();
+    }
+
+    // 翻轉卡片點擊事件
+    cardContainer.onclick = () => cardContainer.classList.toggle('is-flipped');
+    document.getElementById('flip-btn').onclick = (e) => {
+        e.stopPropagation();
+        cardContainer.classList.toggle('is-flipped');
+    };
+
+    // 🌟 發音功能 (使用 ResponsiveVoice) 🌟
+    document.getElementById('speak-btn').onclick = (e) => {
+        e.stopPropagation(); // 阻止事件冒泡，避免按鈕按下去時卡片也跟著翻轉
+        const text = currentList[currentIndex].korean;
+        
+        // 確保 responsiveVoice 已載入
+        if (typeof responsiveVoice !== 'undefined') {
+            // "Korean Female" 是韓文女聲，也可以試試看 "Korean Male"
+            responsiveVoice.speak(text, "Korean Female", {rate: 0.9}); 
+        } else {
+            alert("語音庫載入中或沒有網路連線，請稍後再試！");
+        }
+    };
+
+    // 收藏與取消收藏
+    favToggle.onclick = (e) => {
+        e.stopPropagation();
+        const id = currentList[currentIndex].id;
+        if (favorites.includes(id)) {
+            favorites = favorites.filter(favId => favId !== id);
+        } else {
+            favorites.push(id);
+        }
+        // 將更新後的陣列存入 LocalStorage
+        localStorage.setItem('ko_favorites', JSON.stringify(favorites));
+        updateCard();
+    };
+
+    // 隨機打亂順序
+    document.getElementById('shuffle-btn').onclick = () => {
+        currentList.sort(() => Math.random() - 0.5);
+        currentIndex = 0;
+        updateCard();
+    };
+
+    // 自動播放邏輯
+    document.getElementById('auto-btn').onclick = function() {
+        isAutoPlaying = !isAutoPlaying;
+        this.textContent = isAutoPlaying ? "Stop 停止" : "▶ 自動播放";
+        document.getElementById('auto-status').textContent = isAutoPlaying ? "自動播放中 (每 3 秒)..." : "";
+        
+        if (isAutoPlaying) {
+            autoTimer = setInterval(() => {
+                currentIndex = (currentIndex + 1) % currentList.length;
+                updateCard();
+            }, 3000);
+        } else {
+            clearInterval(autoTimer);
+        }
+    };
+
+    // 上一個 / 下一個
+    document.getElementById('prev-btn').onclick = () => {
+        currentIndex = (currentIndex - 1 + currentList.length) % currentList.length;
+        updateCard();
+    };
+    document.getElementById('next-btn').onclick = () => {
+        currentIndex = (currentIndex + 1) % currentList.length;
+        updateCard();
+    };
+
+    // 網頁載入時初始化第一張字卡
+    updateCard();
+</script>
+
+</body>
+</html>
